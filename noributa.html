@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>30分圏内検索 (Hybrid)</title>
+    <style>
+        :root {
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --text-main: #333333;
+            --text-sub: #666666;
+            --border-color: #dddddd;
+            --btn-bg-auto: #f5f5f5;
+            --btn-text-auto: #333333;
+            --shadow: 0 4px 6px rgba(0,0,0,0.05);
+            
+            /* モード別カラー */
+            --google-color: #4285F4;
+            --yahoo-color: #ff3333;
+            --active-color: #4285F4; /* 初期値 */
+        }
+
+        body.dark-mode {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-main: #e0e0e0;
+            --text-sub: #aaaaaa;
+            --border-color: #333333;
+            --btn-bg-auto: #2c2c2c;
+            --btn-text-auto: #e0e0e0;
+            --shadow: 0 4px 6px rgba(0,0,0,0.3);
+            --google-color: #669df6;
+            --yahoo-color: #ff6666;
+        }
+
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; background-color: var(--bg-color); color: var(--text-main); transition: background 0.3s, color 0.3s; }
+        
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        h1 { font-size: 1.1rem; margin: 0; }
+        .theme-toggle { background: none; border: 1px solid var(--border-color); color: var(--text-main); padding: 5px 10px; border-radius: 20px; font-size: 0.8rem; cursor: pointer; }
+
+        /* タブデザイン */
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab-btn {
+            flex: 1; padding: 12px; border: none; border-radius: 8px;
+            background: var(--card-bg); color: var(--text-sub);
+            font-weight: bold; cursor: pointer; border: 2px solid transparent;
+            box-shadow: var(--shadow); transition: all 0.2s;
+        }
+        .tab-btn.active {
+            background: var(--active-color); color: #fff;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        /* モード別のアクティブ色 */
+        .tab-btn[data-mode="google"].active { background-color: var(--google-color); }
+        .tab-btn[data-mode="yahoo"].active { background-color: var(--yahoo-color); }
+
+        .card { background: var(--card-bg); padding: 20px; border-radius: 12px; box-shadow: var(--shadow); margin-bottom: 20px; transition: background 0.3s; }
+        
+        details.card { padding: 0; overflow: hidden; }
+        summary { padding: 15px 20px; font-weight: bold; cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; outline: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::after { content: '+'; font-size: 1.2rem; color: var(--text-sub); }
+        details[open] summary::after { content: '-'; }
+        details[open] summary { border-bottom: 1px solid var(--border-color); }
+        .options-content { padding: 20px; }
+
+        label { display: block; font-weight: bold; margin-bottom: 8px; color: var(--text-sub); font-size: 0.9rem; }
+        select, input[type="text"], input[type="datetime-local"] { width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 16px; margin-bottom: 10px; background: var(--card-bg); color: var(--text-main); box-sizing: border-box; }
+        
+        .opt-group { margin-bottom: 15px; }
+        .opt-row { display: flex; gap: 10px; }
+        .reset-btn { font-size: 0.8rem; color: var(--text-sub); background: none; border: none; padding: 0; cursor: pointer; text-decoration: underline; margin-top: 5px; }
+        
+        /* 表示・非表示切り替え用クラス */
+        .hidden { display: none !important; }
+
+        .range-container { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        input[type="range"] { flex: 1; height: 6px; border-radius: 5px; background: #ddd; outline: none; }
+        .range-val { font-weight: bold; color: var(--active-color); min-width: 3em; text-align: right; }
+
+        .section-title { font-size: 0.85rem; color: var(--text-sub); margin: 15px 0 8px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 4px; }
+        .station-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
+        
+        button { border: none; cursor: pointer; border-radius: 6px; font-size: 14px; transition: transform 0.1s, opacity 0.2s; }
+        button:active { transform: scale(0.96); }
+
+        .auto-btn { 
+            background-color: var(--btn-bg-auto); color: var(--btn-text-auto); padding: 12px 5px; 
+            border-left: 5px solid #ccc;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+        }
+        .auto-btn small { font-size: 0.7rem; opacity: 0.7; margin-top: 3px; }
+
+        .history-btn { background-color: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-sub); padding: 8px; font-size: 0.8rem; }
+        
+        /* お気に入りボタン（モードに合わせて色が変わる） */
+        .fav-btn { padding: 15px; font-weight: bold; border: 1px solid transparent; background: #f0f0f0; color: #333; }
+        /* Googleモード */
+        body[data-mode="google"] .fav-btn { background-color: #e3f2fd; color: #1565c0; }
+        body[data-mode="google"].dark-mode .fav-btn { background-color: #1a3b5c; color: #90caf9; }
+        /* Yahooモード */
+        body[data-mode="yahoo"] .fav-btn { background-color: #ffebee; color: #d32f2f; }
+        body[data-mode="yahoo"].dark-mode .fav-btn { background-color: #5a1a1a; color: #ff8a80; }
+        
+        .delete-mode .fav-btn { background-color: #eceff1 !important; color: #546e7a !important; border: 1px dashed #90a4ae !important; }
+
+        .action-btn { width: 100%; padding: 12px; background: #333; color: #fff; border-radius: 8px; font-weight: bold; margin-top: 5px; }
+        .sub-btn { padding: 8px 15px; background: #eee; color: #333; border-radius: 6px; border: none; }
+        
+        #loading { text-align: center; color: var(--text-sub); font-size: 0.9rem; margin: 10px 0; display: none; }
+    </style>
+</head>
+<body data-mode="google">
+
+    <header>
+        <h1>🚃 どこ行く？</h1>
+        <button class="theme-toggle" onclick="toggleTheme()">🌙 表示切替</button>
+    </header>
+
+    <div class="tabs">
+        <button class="tab-btn active" data-mode="google" onclick="switchMode('google')">Google Maps<br><span style="font-size:0.7em; font-weight:normal;">(現在時刻)</span></button>
+        <button class="tab-btn" data-mode="yahoo" onclick="switchMode('yahoo')">Yahoo! 乗換<br><span style="font-size:0.7em; font-weight:normal;">(日時指定OK)</span></button>
+    </div>
+
+    <div class="card">
+        <label>出発駅（ここから検索します）</label>
+        <select id="dep-station" onchange="onStationChange()"></select>
+        <button class="action-btn" onclick="getLocation()">📍 現在地周辺の駅を探す</button>
+    </div>
+
+    <details class="card" id="options-card">
+        <summary>⚙️ 検索オプション</summary>
+        <div class="options-content">
+            
+            <div class="opt-group">
+                <label>移動手段</label>
+                <select id="opt-mode">
+                    <option value="transit" selected>🚃 公共交通機関</option>
+                    <option value="walking">🚶 徒歩のみ</option>
+                </select>
+            </div>
+
+            <div id="datetime-area" class="opt-group hidden">
+                <label>日時指定 (Yahoo!専用)</label>
+                <div class="opt-row">
+                    <select id="opt-time-type" style="width:30%;">
+                        <option value="1" selected>出発</option>
+                        <option value="4">到着</option>
+                    </select>
+                    <input type="datetime-local" id="opt-datetime" style="width:70%;">
+                </div>
+                <button class="reset-btn" onclick="setNow()">🔄 現在日時にリセット</button>
+            </div>
+            
+            <div id="google-note" style="font-size:0.8rem; color:var(--text-sub);">
+                ※Googleマップは現在時刻での検索になります。
+            </div>
+
+        </div>
+    </details>
+
+    <div class="card">
+        <div class="section-title">
+            <span>⭐️ よく行く場所</span>
+            <small onclick="toggleDeleteMode()" style="text-decoration:underline; cursor:pointer;">編集</small>
+        </div>
+        <div id="fav-list" class="station-list"></div>
+        
+        <div style="margin-top:10px; display:flex; gap:5px;">
+            <input type="text" id="new-dest" placeholder="駅名を追加">
+            <button class="sub-btn" onclick="addFavorite()">追加</button>
+        </div>
+
+        <div class="section-title" style="margin-top: 30px;">
+            <span>🎯 圏内サーチ</span>
+            <span id="count-badge" style="background:var(--border-color); padding:2px 6px; border-radius:4px; font-size:0.7rem;">0件</span>
+        </div>
+        
+        <div class="range-container">
+            <small>範囲:</small>
+            <input type="range" id="range-slider" min="5" max="50" step="1" value="20" oninput="updateRangeVal(this.value)" onchange="updateDistanceFilter()">
+            <span class="range-val" id="range-display">20km</span>
+        </div>
+
+        <div id="loading">📡 周辺の駅を検索中...</div>
+        <div id="auto-list" class="station-list">
+            <div style="color:var(--text-sub); font-size:0.8rem; grid-column: 1 / -1; text-align:center; padding: 20px;">
+                出発駅を特定すると<br>ここに駅が表示されます
+            </div>
+        </div>
+    </div>
+
+    <div class="card" id="history-card" style="display:none;">
+        <div class="section-title">🕒 最近チェックした駅</div>
+        <div id="history-list" class="station-list"></div>
+    </div>
+
+    <script>
+        const API_URL = "https://express.heartrails.com/api/json?method=";
+        let currentLat = 0;
+        let currentLon = 0;
+        let cachedStations = [];
+        let searchRadiusKm = 20;
+        
+        // 現在のモード ('google' or 'yahoo')
+        let currentMode = 'google';
+
+        let favorites = JSON.parse(localStorage.getItem('my_favorites')) || ['新宿駅', '東京駅'];
+        let history = JSON.parse(localStorage.getItem('my_history')) || [];
+        let isDeleteMode = false;
+
+        const LINE_COLORS = [
+            { key: ['山手', '埼京', '横浜', '新宿線'], color: '#99cc00' },
+            { key: ['中央', '銀座', '東海道', '武蔵野'], color: '#ff9900' },
+            { key: ['京浜東北', '東西', '千代田', '小田急'], color: '#0099cc' },
+            { key: ['丸ノ内', '京葉', '浅草'], color: '#ff3333' },
+            { key: ['半蔵門', '田園都市', '京王'], color: '#cc33cc' },
+            { key: ['東横', '副都心', '有楽町'], color: '#a52a2a' },
+            { key: ['日比谷', '東武'], color: '#999999' }
+        ];
+
+        window.onload = function() {
+            loadTheme();
+            renderFavorites();
+            renderHistory();
+            setNow();
+            getLocation();
+            
+            // 保存されたモードがあれば復元、なければGoogle
+            const savedMode = localStorage.getItem('app_mode');
+            if(savedMode) switchMode(savedMode);
+            else switchMode('google');
+        };
+
+        // --- モード切り替え ---
+        function switchMode(mode) {
+            currentMode = mode;
+            localStorage.setItem('app_mode', mode);
+            
+            // Bodyの属性更新（CSS切り替え用）
+            document.body.setAttribute('data-mode', mode);
+
+            // タブの見た目
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                if(btn.dataset.mode === mode) btn.classList.add('active');
+                else btn.classList.remove('active');
+            });
+
+            // オプションの表示制御
+            const dateArea = document.getElementById('datetime-area');
+            const googleNote = document.getElementById('google-note');
+            
+            if(mode === 'yahoo') {
+                dateArea.classList.remove('hidden');
+                googleNote.classList.add('hidden');
+                document.documentElement.style.setProperty('--active-color', '#ff3333');
+            } else {
+                dateArea.classList.add('hidden');
+                googleNote.classList.remove('hidden');
+                document.documentElement.style.setProperty('--active-color', '#4285F4');
+            }
+        }
+
+        // --- マップを開く（分岐処理） ---
+        function openMap(dest) {
+            if(isDeleteMode) {
+                removeFavorite(dest);
+                return;
+            }
+
+            addToHistory(dest);
+
+            let depStation = document.getElementById('dep-station').value;
+            if(!depStation) {
+                alert("出発駅が選択されていません");
+                return;
+            }
+            // 駅名補正
+            if (!depStation.endsWith("駅")) depStation += "駅";
+            if (!dest.endsWith("駅") && !dest.endsWith("バス停")) dest += "駅";
+
+            // 共通オプション
+            const travelMode = document.getElementById('opt-mode').value; // 'transit' or 'walking'
+
+            let url = "";
+
+            if (currentMode === 'google') {
+                // --- Google Maps (シンプル版) ---
+                url = `https://www.google.co.jp/maps?saddr=${encodeURIComponent(depStation)}&daddr=${encodeURIComponent(dest)}`;
+                const modeParam = (travelMode === 'walking') ? 'w' : 'r';
+                url += `&dirflg=${modeParam}`;
+                // Google版は日時指定を入れない
+            } else {
+                // --- Yahoo!乗換案内 (日時指定版) ---
+                url = `https://transit.yahoo.co.jp/search/result?from=${encodeURIComponent(depStation)}&to=${encodeURIComponent(dest)}`;
+                
+                // 日時取得
+                const timeType = document.getElementById('opt-time-type').value; // 1:出発, 4:到着
+                const datetimeVal = document.getElementById('opt-datetime').value;
+                
+                if (datetimeVal) {
+                    const dateObj = new Date(datetimeVal);
+                    const y = dateObj.getFullYear();
+                    const m = dateObj.getMonth() + 1;
+                    const d = dateObj.getDate();
+                    const hh = dateObj.getHours();
+                    const mm = dateObj.getMinutes();
+                    const m1 = Math.floor(mm / 10);
+                    const m2 = mm % 10;
+                    url += `&y=${y}&m=${m}&d=${d}&hh=${hh}&m1=${m1}&m2=${m2}&type=${timeType}`;
+                }
+                
+                // 徒歩のみ指定はYahoo URLではパラメータが複雑なため今回は除外（基本は電車の最適経路）
+            }
+
+            window.open(url, '_blank');
+        }
+
+        // --- 以下、既存のロジック ---
+        function getLocation() {
+            const select = document.getElementById('dep-station');
+            select.innerHTML = '<option>位置情報を取得中...</option>';
+            if (!navigator.geolocation) { alert("GPS非対応"); return; }
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    currentLat = pos.coords.latitude;
+                    currentLon = pos.coords.longitude;
+                    fetchNearestStations(currentLat, currentLon);
+                },
+                (err) => {
+                    select.innerHTML = '<option>取得失敗</option>';
+                    alert("位置情報を取得できませんでした。");
+                }
+            );
+        }
+
+        function fetchNearestStations(lat, lon) {
+            fetch(`${API_URL}getStations&x=${lon}&y=${lat}`)
+                .then(res => res.json())
+                .then(data => {
+                    const select = document.getElementById('dep-station');
+                    select.innerHTML = '';
+                    if(!data.response || !data.response.station) return;
+                    const stations = data.response.station;
+                    stations.forEach(st => {
+                        const opt = document.createElement('option');
+                        opt.value = st.name;
+                        opt.dataset.lines = st.line;
+                        opt.text = `${st.name} (${st.line})`;
+                        select.appendChild(opt);
+                    });
+                    onStationChange();
+                });
+        }
+
+        function onStationChange() {
+            const select = document.getElementById('dep-station');
+            const selectedOpt = select.options[select.selectedIndex];
+            if(!selectedOpt) return;
+            const lines = selectedOpt.dataset.lines;
+            const stationName = selectedOpt.value;
+            if(lines) fetchStationsOnLine(lines, stationName);
+        }
+
+        async function fetchStationsOnLine(lineName, originName) {
+            const loading = document.getElementById('loading');
+            const badge = document.getElementById('count-badge');
+            document.getElementById('auto-list').innerHTML = '';
+            loading.style.display = 'block';
+            badge.innerText = '...';
+            try {
+                const res = await fetch(`${API_URL}getStations&line=${encodeURIComponent(lineName)}`);
+                const data = await res.json();
+                if(data.response && data.response.station) {
+                    cachedStations = data.response.station.map(st => {
+                        return {
+                            name: st.name,
+                            line: lineName,
+                            dist: getDistance(currentLat, currentLon, st.y, st.x)
+                        };
+                    });
+                    cachedStations = cachedStations.filter(st => st.name !== originName);
+                    renderAutoList();
+                }
+            } catch (e) { console.error(e); } finally { loading.style.display = 'none'; }
+        }
+
+        function updateRangeVal(val) {
+            searchRadiusKm = parseInt(val);
+            document.getElementById('range-display').innerText = `${val}km`;
+        }
+
+        function updateDistanceFilter() { renderAutoList(); }
+
+        function renderAutoList() {
+            const list = document.getElementById('auto-list');
+            const badge = document.getElementById('count-badge');
+            list.innerHTML = '';
+            const filtered = cachedStations.filter(st => st.dist <= searchRadiusKm && st.dist > 1.0);
+            filtered.sort((a, b) => a.dist - b.dist);
+            const displayed = new Set();
+            filtered.forEach(item => {
+                if(displayed.has(item.name)) return;
+                displayed.add(item.name);
+                const btn = document.createElement('button');
+                btn.className = 'auto-btn';
+                btn.style.borderLeftColor = getLineColor(item.line);
+                btn.innerHTML = `<span>${item.name}</span><small>${item.dist.toFixed(1)}km</small>`;
+                btn.onclick = () => openMap(item.name);
+                list.appendChild(btn);
+            });
+            badge.innerText = `${displayed.size}件`;
+            if(displayed.size === 0) list.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:var(--text-sub);">範囲内に駅が見つかりません</div>';
+        }
+
+        function getLineColor(lineName) {
+            if(!lineName) return '#ccc';
+            for (const entry of LINE_COLORS) {
+                if (entry.key.some(k => lineName.includes(k))) return entry.color;
+            }
+            return '#ccc';
+        }
+
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; 
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+
+        function setNow() {
+            const now = new Date();
+            const localIso = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+            document.getElementById('opt-datetime').value = localIso;
+        }
+
+        function addToHistory(dest) {
+            history = history.filter(h => h !== dest);
+            history.unshift(dest);
+            if(history.length > 5) history.pop();
+            localStorage.setItem('my_history', JSON.stringify(history));
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const container = document.getElementById('history-card');
+            const list = document.getElementById('history-list');
+            if(history.length === 0) { container.style.display = 'none'; return; }
+            container.style.display = 'block';
+            list.innerHTML = '';
+            history.forEach(h => {
+                const btn = document.createElement('button');
+                btn.className = 'history-btn';
+                btn.innerText = h;
+                btn.onclick = () => openMap(h);
+                list.appendChild(btn);
+            });
+        }
+
+        function renderFavorites() {
+            const list = document.getElementById('fav-list');
+            list.innerHTML = '';
+            favorites.forEach(f => {
+                const btn = document.createElement('button');
+                btn.className = 'fav-btn';
+                btn.innerText = f;
+                btn.onclick = () => openMap(f);
+                list.appendChild(btn);
+            });
+        }
+
+        function addFavorite() {
+            const input = document.getElementById('new-dest');
+            const val = input.value.trim();
+            if(val && !favorites.includes(val)) {
+                favorites.push(val);
+                localStorage.setItem('my_favorites', JSON.stringify(favorites));
+                renderFavorites();
+                input.value = '';
+            }
+        }
+
+        function removeFavorite(val) {
+            if(confirm(`「${val}」を削除しますか？`)) {
+                favorites = favorites.filter(f => f !== val);
+                localStorage.setItem('my_favorites', JSON.stringify(favorites));
+                renderFavorites();
+                toggleDeleteMode();
+            }
+        }
+
+        function toggleDeleteMode() {
+            isDeleteMode = !isDeleteMode;
+            const list = document.getElementById('fav-list');
+            if(isDeleteMode) list.classList.add('delete-mode'); else list.classList.remove('delete-mode');
+        }
+
+        function toggleTheme() {
+            const body = document.body;
+            body.classList.toggle('dark-mode');
+            localStorage.setItem('theme', body.classList.contains('dark-mode') ? 'dark' : 'light');
+        }
+
+        function loadTheme() {
+            const saved = localStorage.getItem('theme');
+            if(saved === 'dark') document.body.classList.add('dark-mode');
+            else if (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches) document.body.classList.add('dark-mode');
+        }
+    </script>
+</body>
+</html>
