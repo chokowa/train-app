@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>30分圏内検索 v18</title>
+    <title>30分圏内検索 v19</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#ffffff">
     <style>
@@ -128,11 +128,8 @@
 
     <div class="card">
         <label>出発駅（ここから検索）</label>
-        
         <div id="line-filters" class="line-filters" style="display:none;"></div>
-
-        <select id="dep-station" onchange="onStationChange()">
-            </select>
+        <select id="dep-station" onchange="onStationChange()"></select>
         <button class="action-btn" onclick="getLocationFast()">📍 現在地周辺の駅を探す</button>
     </div>
 
@@ -347,35 +344,48 @@
             localStorage.setItem('my_dep_history', JSON.stringify(depHistory));
         }
 
-        // --- GPS取得（通常・高速版） ---
+        // --- GPS取得（高速化設定を追加） ---
         function getLocationFast() {
             const select = document.getElementById('dep-station');
             document.getElementById('line-filters').style.display = 'none';
             select.innerHTML = '<option>位置情報を取得中...</option>';
             if (!navigator.geolocation) { alert("GPS非対応"); return; }
+            
+            // ★高速化オプション: 30秒(30000ms)以内のキャッシュがあればそれを使う
+            // ★タイムアウト: 10秒(10000ms)経っても取れなければエラーにする
+            const options = {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 30000 
+            };
+
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
                     currentLat = pos.coords.latitude;
                     currentLon = pos.coords.longitude;
-                    fetchNearestFast(currentLat, currentLon); // 通常は高速版
+                    fetchNearestFast(currentLat, currentLon);
                 },
                 (err) => {
                     initDepSelect();
-                    alert("位置情報を取得できませんでした。");
-                }
+                    // エラー内容によってメッセージを変える
+                    if(err.code === 3) { // Timeout
+                        alert("位置情報の取得に時間がかかりすぎたため中断しました。");
+                    } else {
+                        alert("位置情報を取得できませんでした。");
+                    }
+                },
+                options // オプションを渡す
             );
         }
 
-        // --- 広範囲検索（オプション・ボタンから起動） ---
         function fetchWideAreaStations() {
             if(currentLat === 0) {
                 alert("先にメイン画面の「📍 現在地...」ボタンで位置情報を取得してください。");
                 return;
             }
-            fetchNearestAndExpand(currentLat, currentLon); // 拡張版を実行
+            fetchNearestAndExpand(currentLat, currentLon);
         }
 
-        // --- 高速検索ロジック (最寄り3駅のみ) ---
         function fetchNearestFast(lat, lon) {
              fetch(`${API_URL}getStations&x=${lon}&y=${lat}`)
                 .then(res => res.json())
@@ -385,26 +395,22 @@
                         select.innerHTML = '<option>駅が見つかりません</option>';
                         return;
                     }
-                    
-                    // 単純に3駅を表示
                     const stations = data.response.station.map(st => {
                         st.distFromHere = getDistance(currentLat, currentLon, st.y, st.x);
                         return st;
                     });
                     
-                    allNearbyStations = stations; // 保存しておく（スライダー操作用ではないが互換性のため）
+                    allNearbyStations = stations;
                     renderLineFilters(stations);
                     populateDepStationSelect(stations);
                 });
         }
 
-        // --- 拡張検索ロジック (路線全取得) ---
         async function fetchNearestAndExpand(lat, lon) {
             const select = document.getElementById('dep-station');
             select.innerHTML = '<option>周辺の駅を収集中...</option>';
 
             try {
-                // 1. まず最寄り3駅を取得
                 const res = await fetch(`${API_URL}getStations&x=${lon}&y=${lat}`);
                 const data = await res.json();
                 
@@ -413,13 +419,11 @@
                     return;
                 }
 
-                // 2. その3駅が所属する路線リストを作成
                 const seedStations = data.response.station;
                 const linesSet = new Set();
                 seedStations.forEach(st => linesSet.add(st.line));
                 const lines = [...linesSet];
 
-                // 3. 各路線の全駅を取得
                 let allStations = [];
                 const promises = lines.map(line => 
                     fetch(`${API_URL}getStations&line=${encodeURIComponent(line)}`)
@@ -428,7 +432,6 @@
                 
                 const results = await Promise.all(promises);
                 
-                // 4. 全駅データを統合し、現在地からの距離を計算
                 results.forEach(r => {
                     if(r.response && r.response.station) {
                         r.response.station.forEach(st => {
@@ -438,7 +441,6 @@
                     }
                 });
 
-                // 重複除去
                 const uniqueStations = [];
                 const seen = new Set();
                 allStations.forEach(st => {
@@ -449,12 +451,10 @@
                     }
                 });
 
-                allNearbyStations = uniqueStations; // グローバルに保存
+                allNearbyStations = uniqueStations; 
                 
-                // 5. スライダーの値でフィルタリングして表示
                 updateDepStationsByRange();
                 
-                // オプションを閉じて結果を見せる
                 document.getElementById('options-card').removeAttribute('open');
                 alert("広範囲検索が完了しました。出発駅リストを確認してください。");
 
@@ -470,18 +470,12 @@
         }
 
         function updateDepStationsByRange() {
-            // 現在のスライダー値でフィルタリング
             const filtered = allNearbyStations.filter(s => s.distFromHere <= depSearchRadiusKm);
-            
-            // 距離順にソート
             filtered.sort((a, b) => a.distFromHere - b.distFromHere);
 
-            // 0件の場合は救済
             let finalStations = filtered;
             if(finalStations.length === 0 && allNearbyStations.length > 0) {
-                // 通常検索結果しかない場合もここに来るが、それはそれでOK
                 allNearbyStations.sort((a, b) => a.distFromHere - b.distFromHere);
-                // 全駅リストがある場合は一番近い1つ、通常検索(3つ)の場合は全部出す
                 if(allNearbyStations.length > 3) {
                      finalStations = [allNearbyStations[0]];
                 } else {
@@ -539,7 +533,6 @@
                 opt.value = st.name;
                 opt.dataset.lines = st.line;
                 opt.text = `${st.name} (${st.line})`;
-                // 距離情報があれば追加表示
                 if(st.distFromHere) {
                     opt.text += ` - ${st.distFromHere.toFixed(1)}km`;
                 }
