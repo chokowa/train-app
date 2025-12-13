@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>30分圏内検索 v19</title>
+    <title>30分圏内検索 v20</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#ffffff">
     <style>
@@ -19,6 +19,8 @@
             
             --google-color: #4285F4;
             --yahoo-color: #ff3333;
+            --google-bg-light: #e3f2fd;
+            --yahoo-bg-light: #ffebee;
         }
 
         body.dark-mode {
@@ -32,85 +34,97 @@
             --shadow: 0 4px 6px rgba(0,0,0,0.3);
             --google-color: #669df6;
             --yahoo-color: #ff6666;
+            --google-bg-light: #1a3b5c;
+            --yahoo-bg-light: #5a1a1a;
         }
 
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; padding: 15px; max-width: 600px; margin: 0 auto; background-color: var(--bg-color); color: var(--text-main); transition: background 0.3s, color 0.3s; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; padding: 12px; max-width: 600px; margin: 0 auto; background-color: var(--bg-color); color: var(--text-main); transition: background 0.3s, color 0.3s; }
         
-        header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; gap: 10px; }
-        .header-left { display: flex; align-items: center; gap: 10px; flex: 1; }
-        h1 { font-size: 1.0rem; margin: 0; white-space: nowrap; }
+        header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 8px; }
+        .header-left { display: flex; align-items: center; gap: 8px; flex: 1; }
+        h1 { font-size: 0.95rem; margin: 0; white-space: nowrap; color: var(--text-main); }
         
-        .tabs { display: flex; gap: 5px; flex: 1; }
+        /* 改善: タブボタンを薄くコンパクトに */
+        .tabs { display: flex; gap: 4px; flex: 1; max-width: 200px; }
         .tab-btn {
-            flex: 1; padding: 6px 0; border: none; border-radius: 6px;
+            flex: 1; padding: 4px 0; border: none; border-radius: 4px;
             background: var(--card-bg); color: var(--text-sub);
-            font-size: 0.8rem; font-weight: bold; cursor: pointer; border: 1px solid var(--border-color);
-            box-shadow: var(--shadow); transition: all 0.2s;
+            font-size: 0.75rem; font-weight: bold; cursor: pointer; border: 1px solid var(--border-color);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.2s;
         }
         
-        .tab-btn.active { color: #fff; border-color: transparent; }
+        .tab-btn.active { color: #fff; border-color: transparent; box-shadow: inset 0 1px 3px rgba(0,0,0,0.2); }
         .tab-btn[data-mode="google"].active { background-color: var(--google-color); }
         .tab-btn[data-mode="yahoo"].active { background-color: var(--yahoo-color); }
 
-        .theme-toggle { background: none; border: 1px solid var(--border-color); color: var(--text-main); padding: 5px 8px; border-radius: 15px; font-size: 0.8rem; cursor: pointer; flex-shrink: 0; }
+        .theme-toggle { background: none; border: 1px solid var(--border-color); color: var(--text-main); padding: 4px 8px; border-radius: 12px; font-size: 0.8rem; cursor: pointer; flex-shrink: 0; }
 
-        .card { background: var(--card-bg); padding: 15px; border-radius: 10px; box-shadow: var(--shadow); margin-bottom: 15px; transition: background 0.3s; }
+        .card { background: var(--card-bg); padding: 12px; border-radius: 8px; box-shadow: var(--shadow); margin-bottom: 12px; transition: background 0.3s; }
         
-        .line-filters { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+        /* 改善: 路線フィルタのデザイン */
+        .line-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px dashed var(--border-color); }
         .line-tag {
-            font-size: 0.75rem; padding: 4px 8px; border-radius: 15px; border: 1px solid var(--border-color);
-            background: var(--bg-color); color: var(--text-main); cursor: pointer;
+            font-size: 0.7rem; padding: 3px 10px; border-radius: 12px; border: 1px solid var(--border-color);
+            background: var(--btn-bg-auto); color: var(--text-sub); cursor: pointer; transition: all 0.2s;
         }
-        .line-tag.selected { background: var(--text-main); color: var(--bg-color); border-color: var(--text-main); }
+        .line-tag:hover { opacity: 0.8; }
+        .line-tag.selected { background: var(--text-main); color: var(--bg-color); border-color: var(--text-main); font-weight: bold; }
 
         details.card { padding: 0; overflow: hidden; }
-        summary { padding: 12px 15px; font-weight: bold; cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; outline: none; font-size: 0.9rem; }
+        summary { padding: 10px 12px; font-weight: bold; cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; outline: none; font-size: 0.85rem; color: var(--text-sub); }
         summary::-webkit-details-marker { display: none; }
-        summary::after { content: '+'; font-size: 1.2rem; color: var(--text-sub); }
+        summary::after { content: '+'; font-size: 1.1rem; color: var(--text-sub); }
         details[open] summary::after { content: '-'; }
-        details[open] summary { border-bottom: 1px solid var(--border-color); }
-        .options-content { padding: 15px; }
+        details[open] summary { border-bottom: 1px solid var(--border-color); background: rgba(0,0,0,0.02); }
+        .options-content { padding: 12px; }
 
-        label { display: block; font-weight: bold; margin-bottom: 6px; color: var(--text-sub); font-size: 0.85rem; }
-        select, input[type="text"], input[type="datetime-local"] { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 16px; margin-bottom: 10px; background: var(--card-bg); color: var(--text-main); box-sizing: border-box; }
+        label { display: block; font-weight: bold; margin-bottom: 4px; color: var(--text-sub); font-size: 0.8rem; }
+        select, input[type="text"], input[type="datetime-local"] { width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 15px; margin-bottom: 8px; background: var(--card-bg); color: var(--text-main); box-sizing: border-box; }
         
-        .opt-group { margin-bottom: 15px; }
-        .opt-row { display: flex; gap: 10px; }
-        .reset-btn { font-size: 0.8rem; color: var(--text-sub); background: none; border: none; padding: 0; cursor: pointer; text-decoration: underline; margin-top: 5px; }
+        .opt-group { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border-color); }
+        .opt-group:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        
+        .opt-row { display: flex; gap: 8px; align-items: center; }
+        
+        .reset-btn { font-size: 0.75rem; color: var(--text-sub); background: none; border: none; padding: 0; cursor: pointer; text-decoration: underline; margin-top: 4px; }
         .hidden { display: none !important; }
 
-        .range-container { display: flex; align-items: center; gap: 10px; margin-top: 5px; padding-top: 10px; border-top: 1px solid var(--border-color); }
-        input[type="range"] { flex: 1; height: 6px; border-radius: 5px; background: #ddd; outline: none; }
-        .range-val { font-weight: bold; color: var(--google-color); min-width: 3em; text-align: right; }
+        .range-container { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+        input[type="range"] { flex: 1; height: 4px; border-radius: 2px; background: #ddd; outline: none; }
+        .range-val { font-weight: bold; font-size: 0.9rem; color: var(--google-color); min-width: 3em; text-align: right; }
         body[data-mode="yahoo"] .range-val { color: var(--yahoo-color); }
 
-        .section-title { font-size: 0.85rem; color: var(--text-sub); margin: 10px 0 8px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 4px; }
-        .station-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 8px; }
+        .section-title { font-size: 0.8rem; font-weight: bold; color: var(--text-sub); margin: 5px 0 8px; display: flex; justify-content: space-between; align-items: center; }
+        .station-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(85px, 1fr)); gap: 6px; }
         
-        button { border: none; cursor: pointer; border-radius: 6px; font-size: 14px; transition: transform 0.1s, opacity 0.2s; }
+        button { border: none; cursor: pointer; border-radius: 6px; font-size: 13px; transition: transform 0.1s, opacity 0.2s; }
         button:active { transform: scale(0.96); }
 
         .auto-btn { 
-            background-color: var(--btn-bg-auto); color: var(--btn-text-auto); padding: 10px 4px; 
-            border-left: 4px solid #ccc;
+            background-color: var(--btn-bg-auto); color: var(--btn-text-auto); padding: 8px 4px; 
+            border-left: 3px solid #ccc;
             display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
-        .auto-btn small { font-size: 0.7rem; opacity: 0.7; margin-top: 3px; }
+        .auto-btn small { font-size: 0.65rem; opacity: 0.7; margin-top: 2px; }
 
-        .history-btn { background-color: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-sub); padding: 8px; font-size: 0.8rem; }
+        .history-btn { background-color: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-sub); padding: 6px; font-size: 0.75rem; }
         
-        .fav-btn { padding: 12px; font-weight: bold; border: 1px solid transparent; background: #f0f0f0; color: #333; }
-        body[data-mode="google"] .fav-btn { background-color: #e3f2fd; color: #1565c0; }
-        body[data-mode="google"].dark-mode .fav-btn { background-color: #1a3b5c; color: #90caf9; }
-        body[data-mode="yahoo"] .fav-btn { background-color: #ffebee; color: #d32f2f; }
-        body[data-mode="yahoo"].dark-mode .fav-btn { background-color: #5a1a1a; color: #ff8a80; }
+        .fav-btn { padding: 10px; font-weight: bold; border: 1px solid transparent; background: #f0f0f0; color: #333; font-size: 0.85rem; }
+        body[data-mode="google"] .fav-btn { background-color: var(--google-bg-light); color: #1565c0; }
+        body[data-mode="yahoo"] .fav-btn { background-color: var(--yahoo-bg-light); color: #d32f2f; }
         
-        .delete-mode .fav-btn { background-color: #eceff1 !important; color: #546e7a !important; border: 1px dashed #90a4ae !important; }
+        .delete-mode .fav-btn { background-color: #eceff1 !important; color: #546e7a !important; border: 1px dashed #90a4ae !important; opacity: 0.7; }
 
-        .action-btn { width: 100%; padding: 10px; background: #333; color: #fff; border-radius: 8px; font-weight: bold; margin-top: 5px; }
-        .sub-btn { padding: 8px 15px; background: #eee; color: #333; border-radius: 6px; border: none; }
+        .action-btn { width: 100%; padding: 10px; background: var(--text-main); color: var(--bg-color); border-radius: 6px; font-weight: bold; margin-top: 4px; font-size: 0.9rem; }
+        .sub-btn { padding: 6px 12px; background: #eee; color: #333; border-radius: 4px; border: 1px solid #ccc; font-size: 0.8rem; }
         
-        #loading { text-align: center; color: var(--text-sub); font-size: 0.8rem; margin: 10px 0; display: none; }
+        #loading { text-align: center; color: var(--text-sub); font-size: 0.75rem; margin: 10px 0; display: none; }
+        
+        /* 手動設定用 */
+        .manual-input-group { display: flex; width: 100%; gap: 5px; }
+        .manual-input-group input { margin-bottom: 0; flex: 1; }
+        .manual-input-group button { white-space: nowrap; }
     </style>
 </head>
 <body data-mode="google">
@@ -128,9 +142,11 @@
 
     <div class="card">
         <label>出発駅（ここから検索）</label>
+        
         <div id="line-filters" class="line-filters" style="display:none;"></div>
+        
         <select id="dep-station" onchange="onStationChange()"></select>
-        <button class="action-btn" onclick="getLocationFast()">📍 現在地周辺の駅を探す</button>
+        <button class="action-btn" onclick="getLocationFast()">📍 現在地から探す</button>
     </div>
 
     <details class="card" id="options-card">
@@ -138,25 +154,22 @@
         <div class="options-content">
             
             <div class="opt-group">
-                <label>出発駅の検索範囲</label>
-                <div style="font-size:0.8rem; color:var(--text-sub); margin-bottom:8px;">
-                    ※通常は最寄り3駅のみですが、下記ボタンで範囲を広げて再検索できます。
+                <label>出発駅の手動設定</label>
+                <div class="manual-input-group">
+                    <input type="text" id="manual-dep-input" placeholder="駅名を入力 (例: 新宿)">
+                    <button class="sub-btn" onclick="setManualDep()">設定</button>
                 </div>
-                <div class="range-container" style="border-top:none; margin-top:0; padding-top:0;">
-                    <input type="range" id="dep-range-slider" min="1.0" max="10.0" step="1.0" value="2.0" oninput="updateDepRangeVal(this.value)">
-                    <span class="range-val" id="dep-range-display">2.0km</span>
-                </div>
-                <button class="sub-btn" style="width:100%; margin-top:10px; background-color:#e0e0e0;" onclick="fetchWideAreaStations()">
-                    📡 指定範囲まで広げて再検索 (少し遅め)
-                </button>
             </div>
 
             <div class="opt-group">
-                <label>出発駅を手動で設定</label>
-                <div class="opt-row">
-                    <input type="text" id="manual-dep-input" placeholder="例: 新宿">
-                    <button class="sub-btn" onclick="setManualDep()">設定</button>
+                <label>検索範囲の拡張 (出発駅)</label>
+                <div class="range-container">
+                    <input type="range" id="dep-range-slider" min="1.0" max="10.0" step="1.0" value="2.0" oninput="updateDepRangeVal(this.value)">
+                    <span class="range-val" id="dep-range-display" style="font-size:0.8rem; min-width:2.5em;">2.0km</span>
                 </div>
+                <button class="sub-btn" style="width:100%; margin-top:8px; font-size:0.75rem;" onclick="fetchWideAreaStations()">
+                    📡 範囲を広げて再検索 (遅め)
+                </button>
             </div>
 
             <div class="opt-group">
@@ -170,17 +183,19 @@
             <div id="datetime-area" class="opt-group hidden">
                 <label>日時指定 (Yahoo!専用)</label>
                 <div class="opt-row">
-                    <select id="opt-time-type" style="width:30%;">
+                    <select id="opt-time-type" style="width:35%;">
                         <option value="1" selected>出発</option>
                         <option value="4">到着</option>
                     </select>
-                    <input type="datetime-local" id="opt-datetime" style="width:70%;">
+                    <input type="datetime-local" id="opt-datetime" style="flex:1; margin-bottom:0;">
                 </div>
-                <button class="reset-btn" onclick="setNow()">🔄 現在日時にリセット</button>
+                <div style="text-align:right;">
+                    <button class="reset-btn" onclick="setNow()">🔄 現在日時にリセット</button>
+                </div>
             </div>
             
-            <div id="google-note" style="font-size:0.8rem; color:var(--text-sub); margin-top:10px;">
-                ※Googleマップは現在時刻での検索になります。
+            <div id="google-note" style="font-size:0.75rem; color:var(--text-sub); margin-top:5px; text-align:center;">
+                ※Googleマップは現在時刻での検索になります
             </div>
 
         </div>
@@ -189,30 +204,32 @@
     <div class="card">
         <div class="section-title">
             <span>⭐️ よく行く場所</span>
-            <small onclick="toggleDeleteMode()" style="text-decoration:underline; cursor:pointer;">編集</small>
+            <small onclick="toggleDeleteMode()" style="text-decoration:underline; cursor:pointer; opacity:0.8;">編集</small>
         </div>
         <div id="fav-list" class="station-list"></div>
         
         <div style="margin-top:10px; display:flex; gap:5px;">
-            <input type="text" id="new-dest" placeholder="駅名を追加">
+            <input type="text" id="new-dest" placeholder="駅名を追加" style="margin-bottom:0;">
             <button class="sub-btn" onclick="addFavorite()">追加</button>
         </div>
 
-        <div class="section-title" style="margin-top: 30px;">
-            <span>🎯 圏内サーチ (到着駅)</span>
-            <span id="count-badge" style="background:var(--border-color); padding:2px 6px; border-radius:4px; font-size:0.7rem;">0件</span>
-        </div>
-        
-        <div class="range-container">
-            <small>範囲:</small>
-            <input type="range" id="range-slider" min="5" max="50" step="1" value="20" oninput="updateRangeVal(this.value)" onchange="updateDistanceFilter()">
-            <span class="range-val" id="range-display">20km</span>
-        </div>
+        <div style="border-top:1px solid var(--border-color); margin: 15px 0 10px; padding-top:10px;">
+            <div class="section-title" style="margin-bottom:5px;">
+                <span>🎯 圏内サーチ (到着駅)</span>
+                <span id="count-badge" style="background:var(--border-color); padding:1px 6px; border-radius:4px; font-size:0.65rem;">0件</span>
+            </div>
+            
+            <div class="range-container" style="margin-bottom:10px;">
+                <span style="font-size:0.75rem; color:var(--text-sub);">範囲:</span>
+                <input type="range" id="range-slider" min="5" max="50" step="1" value="20" oninput="updateRangeVal(this.value)" onchange="updateDistanceFilter()">
+                <span class="range-val" id="range-display">20km</span>
+            </div>
 
-        <div id="loading">📡 周辺の駅を検索中...</div>
-        <div id="auto-list" class="station-list">
-            <div style="color:var(--text-sub); font-size:0.8rem; grid-column: 1 / -1; text-align:center; padding: 20px;">
-                出発駅を特定すると<br>ここに駅が表示されます
+            <div id="loading">📡 周辺の駅を検索中...</div>
+            <div id="auto-list" class="station-list">
+                <div style="color:var(--text-sub); font-size:0.75rem; grid-column: 1 / -1; text-align:center; padding: 15px; background:rgba(0,0,0,0.02); border-radius:6px;">
+                    出発駅を特定すると<br>ここに駅が表示されます
+                </div>
             </div>
         </div>
     </div>
@@ -344,15 +361,12 @@
             localStorage.setItem('my_dep_history', JSON.stringify(depHistory));
         }
 
-        // --- GPS取得（高速化設定を追加） ---
         function getLocationFast() {
             const select = document.getElementById('dep-station');
             document.getElementById('line-filters').style.display = 'none';
             select.innerHTML = '<option>位置情報を取得中...</option>';
             if (!navigator.geolocation) { alert("GPS非対応"); return; }
             
-            // ★高速化オプション: 30秒(30000ms)以内のキャッシュがあればそれを使う
-            // ★タイムアウト: 10秒(10000ms)経っても取れなければエラーにする
             const options = {
                 enableHighAccuracy: true,
                 timeout: 10000,
@@ -367,14 +381,13 @@
                 },
                 (err) => {
                     initDepSelect();
-                    // エラー内容によってメッセージを変える
-                    if(err.code === 3) { // Timeout
+                    if(err.code === 3) { 
                         alert("位置情報の取得に時間がかかりすぎたため中断しました。");
                     } else {
                         alert("位置情報を取得できませんでした。");
                     }
                 },
-                options // オプションを渡す
+                options
             );
         }
 
@@ -556,6 +569,7 @@
             onStationChange();
             document.getElementById('options-card').removeAttribute('open');
             alert(`出発駅を「${val}」に設定しました`);
+            input.value = '';
         }
 
         function onStationChange() {
@@ -570,7 +584,7 @@
             if(lines && currentLat !== 0) {
                 fetchStationsOnLine(lines, stationName);
             } else {
-                document.getElementById('auto-list').innerHTML = '<div style="text-align:center; padding:10px; color:#999; font-size:0.8rem;">GPS未取得または路線情報がないため<br>圏内サーチは利用できません。<br>「よく行く場所」から選んでください。</div>';
+                document.getElementById('auto-list').innerHTML = '<div style="text-align:center; padding:10px; color:var(--text-sub); font-size:0.75rem;">GPS未取得または路線情報がないため<br>圏内サーチは利用できません。<br>「よく行く場所」から選んでください。</div>';
                 document.getElementById('count-badge').innerText = '-';
             }
         }
@@ -618,7 +632,7 @@
                 list.appendChild(btn);
             });
             badge.innerText = `${displayed.size}件`;
-            if(displayed.size === 0) list.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:var(--text-sub);">範囲内に駅が見つかりません</div>';
+            if(displayed.size === 0) list.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:var(--text-sub); font-size:0.8rem; padding:15px;">指定範囲内に駅が見つかりません</div>';
         }
 
         function getLineColor(lineName) {
