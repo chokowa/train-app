@@ -347,7 +347,7 @@
                 const modeParam = (travelMode === 'walking') ? 'w' : 'r';
                 url += `&dirflg=${modeParam}`;
             } else {
-                url = `https://transit.yahoo.co.jp/search/result?from=${encodeURIComponent(depStation)}&to=${encodeURIComponent(dest)}`;
+                url = `https://transit.yahoo.co.jp/search/result?from=${encodeURIComponent(depStation)}&to=${encodeURIComponent(dest)}&al=1&shin=1&ex=1&hb=1&lb=1&sr=1`;
                 const timeType = document.getElementById('opt-time-type').value;
                 const datetimeVal = document.getElementById('opt-datetime').value;
                 if (datetimeVal) {
