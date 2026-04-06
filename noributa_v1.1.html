@@ -428,33 +428,71 @@
             select.innerHTML = '<option>周辺の駅を収集中...</option>';
 
             try {
-                const res = await fetch(`${API_URL}getStations&x=${lon}&y=${lat}`);
-                const data = await res.json();
+                // 1. 探索距離（km）に基づく緯度・経度の増減幅を計算
+                const R = depSearchRadiusKm;
+                const dLat = R / 111.32;
+                const dLon = R / (111.32 * Math.cos(lat * Math.PI / 180));
+
+                // 2. 3x3の9点グリッド座標を生成（北西〜南東）
+                const offsets = [
+                    [-1, 1],  [0, 1],  [1, 1],
+                    [-1, 0],  [0, 0],  [1, 0],
+                    [-1, -1], [0, -1], [1, -1]
+                ];
+
+                // 3. 9点の座標から都道府県を割り出す (GeoAPIを使用)
+                const geoPromises = offsets.map(offset => {
+                    const targetLat = lat + (offset[1] * dLat);
+                    const targetLon = lon + (offset[0] * dLon);
+                    return fetch(`https://geoapi.heartrails.com/api/json?method=searchByGeoLocation&x=${targetLon}&y=${targetLat}`)
+                        .then(r => r.json())
+                        .catch(e => null);
+                });
+
+                const geoResults = await Promise.all(geoPromises);
                 
-                if(!data.response || !data.response.station) {
-                    select.innerHTML = '<option>駅が見つかりません</option>';
+                const prefecturesSet = new Set();
+                geoResults.forEach(data => {
+                    if (data && data.response && data.response.location && data.response.location.length > 0) {
+                        prefecturesSet.add(data.response.location[0].prefecture);
+                    }
+                });
+                const prefectures = [...prefecturesSet];
+
+                if (prefectures.length === 0) {
+                    select.innerHTML = '<option>都道府県情報の取得に失敗</option>';
                     return;
                 }
 
-                const seedStations = data.response.station;
+                // 4. 判明したすべての都道府県の全路線を取得する
+                const linePromises = prefectures.map(pref => 
+                    fetch(`${API_URL}getLines&prefecture=${encodeURIComponent(pref)}`)
+                    .then(r => r.json())
+                    .catch(e => null)
+                );
+
+                const lineResults = await Promise.all(linePromises);
+
                 const linesSet = new Set();
-                seedStations.forEach(st => linesSet.add(st.line));
+                lineResults.forEach(data => {
+                    if (data && data.response && data.response.line) {
+                        data.response.line.forEach(line => linesSet.add(line));
+                    }
+                });
                 const lines = [...linesSet];
 
+                // 5. 取得した全路線の各駅データを一斉取得する
                 let allStations = [];
-                const promises = lines.map(line => 
+                const stPromises = lines.map(line => 
                     fetch(`${API_URL}getStations&line=${encodeURIComponent(line)}`)
                     .then(r => r.json())
-                    .catch(e => {
-                        console.warn(`[API取得エラー] ${line}:`, e);
-                        return { response: { station: [] } }; // エラー時は空データを返して全体を止めない
-                    })
+                    .catch(e => null)
                 );
                 
-                const results = await Promise.all(promises);
+                const results = await Promise.all(stPromises);
                 
                 results.forEach(r => {
-                    if(r.response && r.response.station) {
+                    if(r && r.response && r.response.station) {
                         r.response.station.forEach(st => {
                             st.distFromHere = getDistance(currentLat, currentLon, st.y, st.x);
                             allStations.push(st);
