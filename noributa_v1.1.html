@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>30分圏内検索 v20</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#ffffff">
+    <style>
+        :root {
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --text-main: #333333;
+            --text-sub: #666666;
+            --border-color: #dddddd;
+            --btn-bg-auto: #f5f5f5;
+            --btn-text-auto: #333333;
+            --shadow: 0 2px 5px rgba(0,0,0,0.05);
+            
+            --google-color: #4285F4;
+            --yahoo-color: #ff3333;
+            --google-bg-light: #e3f2fd;
+            --yahoo-bg-light: #ffebee;
+        }
+
+        body.dark-mode {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-main: #e0e0e0;
+            --text-sub: #aaaaaa;
+            --border-color: #333333;
+            --btn-bg-auto: #2c2c2c;
+            --btn-text-auto: #e0e0e0;
+            --shadow: 0 4px 6px rgba(0,0,0,0.3);
+            --google-color: #669df6;
+            --yahoo-color: #ff6666;
+            --google-bg-light: #1a3b5c;
+            --yahoo-bg-light: #5a1a1a;
+        }
+
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; padding: 12px; max-width: 600px; margin: 0 auto; background-color: var(--bg-color); color: var(--text-main); transition: background 0.3s, color 0.3s; }
+        
+        header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 8px; }
+        .header-left { display: flex; align-items: center; gap: 8px; flex: 1; }
+        h1 { font-size: 0.95rem; margin: 0; white-space: nowrap; color: var(--text-main); }
+        
+        /* 改善: タブボタンを薄くコンパクトに */
+        .tabs { display: flex; gap: 4px; flex: 1; max-width: 200px; }
+        .tab-btn {
+            flex: 1; padding: 4px 0; border: none; border-radius: 4px;
+            background: var(--card-bg); color: var(--text-sub);
+            font-size: 0.75rem; font-weight: bold; cursor: pointer; border: 1px solid var(--border-color);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.2s;
+        }
+        
+        .tab-btn.active { color: #fff; border-color: transparent; box-shadow: inset 0 1px 3px rgba(0,0,0,0.2); }
+        .tab-btn[data-mode="google"].active { background-color: var(--google-color); }
+        .tab-btn[data-mode="yahoo"].active { background-color: var(--yahoo-color); }
+
+        .theme-toggle { background: none; border: 1px solid var(--border-color); color: var(--text-main); padding: 4px 8px; border-radius: 12px; font-size: 0.8rem; cursor: pointer; flex-shrink: 0; }
+
+        .card { background: var(--card-bg); padding: 12px; border-radius: 8px; box-shadow: var(--shadow); margin-bottom: 12px; transition: background 0.3s; }
+        
+        /* 改善: 路線フィルタのデザイン */
+        .line-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px dashed var(--border-color); }
+        .line-tag {
+            font-size: 0.7rem; padding: 3px 10px; border-radius: 12px; border: 1px solid var(--border-color);
+            background: var(--btn-bg-auto); color: var(--text-sub); cursor: pointer; transition: all 0.2s;
+        }
+        .line-tag:hover { opacity: 0.8; }
+        .line-tag.selected { background: var(--text-main); color: var(--bg-color); border-color: var(--text-main); font-weight: bold; }
+
+        details.card { padding: 0; overflow: hidden; }
+        summary { padding: 10px 12px; font-weight: bold; cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; outline: none; font-size: 0.85rem; color: var(--text-sub); }
+        summary::-webkit-details-marker { display: none; }
+        summary::after { content: '+'; font-size: 1.1rem; color: var(--text-sub); }
+        details[open] summary::after { content: '-'; }
+        details[open] summary { border-bottom: 1px solid var(--border-color); background: rgba(0,0,0,0.02); }
+        .options-content { padding: 12px; }
+
+        label { display: block; font-weight: bold; margin-bottom: 4px; color: var(--text-sub); font-size: 0.8rem; }
+        select, input[type="text"], input[type="datetime-local"] { width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 15px; margin-bottom: 8px; background: var(--card-bg); color: var(--text-main); box-sizing: border-box; }
+        
+        .opt-group { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border-color); }
+        .opt-group:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        
+        .opt-row { display: flex; gap: 8px; align-items: center; }
+        
+        .reset-btn { font-size: 0.75rem; color: var(--text-sub); background: none; border: none; padding: 0; cursor: pointer; text-decoration: underline; margin-top: 4px; }
+        .hidden { display: none !important; }
+
+        .range-container { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+        input[type="range"] { flex: 1; height: 4px; border-radius: 2px; background: #ddd; outline: none; }
+        .range-val { font-weight: bold; font-size: 0.9rem; color: var(--google-color); min-width: 3em; text-align: right; }
+        body[data-mode="yahoo"] .range-val { color: var(--yahoo-color); }
+
+        .section-title { font-size: 0.8rem; font-weight: bold; color: var(--text-sub); margin: 5px 0 8px; display: flex; justify-content: space-between; align-items: center; }
+        .station-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(85px, 1fr)); gap: 6px; }
+        
+        button { border: none; cursor: pointer; border-radius: 6px; font-size: 13px; transition: transform 0.1s, opacity 0.2s; }
+        button:active { transform: scale(0.96); }
+
+        .auto-btn { 
+            background-color: var(--btn-bg-auto); color: var(--btn-text-auto); padding: 8px 4px; 
+            border-left: 3px solid #ccc;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .auto-btn small { font-size: 0.65rem; opacity: 0.7; margin-top: 2px; }
+
+        .history-btn { background-color: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-sub); padding: 6px; font-size: 0.75rem; }
+        
+        .fav-btn { padding: 10px; font-weight: bold; border: 1px solid transparent; background: #f0f0f0; color: #333; font-size: 0.85rem; }
+        body[data-mode="google"] .fav-btn { background-color: var(--google-bg-light); color: #1565c0; }
+        body[data-mode="yahoo"] .fav-btn { background-color: var(--yahoo-bg-light); color: #d32f2f; }
+        
+        .delete-mode .fav-btn { background-color: #eceff1 !important; color: #546e7a !important; border: 1px dashed #90a4ae !important; opacity: 0.7; }
+
+        .action-btn { width: 100%; padding: 10px; background: var(--text-main); color: var(--bg-color); border-radius: 6px; font-weight: bold; margin-top: 4px; font-size: 0.9rem; }
+        .sub-btn { padding: 6px 12px; background: #eee; color: #333; border-radius: 4px; border: 1px solid #ccc; font-size: 0.8rem; }
+        
+        #loading { text-align: center; color: var(--text-sub); font-size: 0.75rem; margin: 10px 0; display: none; }
+        
+        /* 手動設定用 */
+        .manual-input-group { display: flex; width: 100%; gap: 5px; }
+        .manual-input-group input { margin-bottom: 0; flex: 1; }
+        .manual-input-group button { white-space: nowrap; }
+    </style>
+</head>
+<body data-mode="google">
+
+    <header>
+        <div class="header-left">
+            <h1>どこ行く？</h1>
+            <div class="tabs">
+                <button class="tab-btn active" data-mode="google" onclick="switchMode('google')">Google</button>
+                <button class="tab-btn" data-mode="yahoo" onclick="switchMode('yahoo')">Yahoo!</button>
+            </div>
+        </div>
+        <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+    </header>
+
+    <div class="card">
+        <label>出発駅（ここから検索）</label>
+        
+        <div id="line-filters" class="line-filters" style="display:none;"></div>
+        
+        <select id="dep-station" onchange="onStationChange()"></select>
+        <button class="action-btn" onclick="getLocationFast()">📍 現在地から探す</button>
+    </div>
+
+    <details class="card" id="options-card">
+        <summary>⚙️ 手動設定・オプション</summary>
+        <div class="options-content">
+            
+            <div class="opt-group">
+                <label>出発駅の手動設定</label>
+                <div class="manual-input-group">
+                    <input type="text" id="manual-dep-input" placeholder="駅名を入力 (例: 新宿)">
+                    <button class="sub-btn" onclick="setManualDep()">設定</button>
+                </div>
+            </div>
+
+            <div class="opt-group">
+                <label>検索範囲の拡張 (出発駅)</label>
+                <div class="range-container">
+                    <input type="range" id="dep-range-slider" min="1.0" max="10.0" step="1.0" value="2.0" oninput="updateDepRangeVal(this.value)">
+                    <span class="range-val" id="dep-range-display" style="font-size:0.8rem; min-width:2.5em;">2.0km</span>
+                </div>
+                <button class="sub-btn" style="width:100%; margin-top:8px; font-size:0.75rem;" onclick="fetchWideAreaStations()">
+                    📡 範囲を広げて再検索 (遅め)
+                </button>
+            </div>
+
+            <div class="opt-group">
+                <label>移動手段</label>
+                <select id="opt-mode">
+                    <option value="transit" selected>🚃 公共交通機関</option>
+                    <option value="walking">🚶 徒歩のみ</option>
+                </select>
+            </div>
+
+            <div id="datetime-area" class="opt-group hidden">
+                <label>日時指定 (Yahoo!専用)</label>
+                <div class="opt-row">
+                    <select id="opt-time-type" style="width:35%;">
+                        <option value="1" selected>出発</option>
+                        <option value="4">到着</option>
+                    </select>
+                    <input type="datetime-local" id="opt-datetime" style="flex:1; margin-bottom:0;">
+                </div>
+                <div style="text-align:right;">
+                    <button class="reset-btn" onclick="setNow()">🔄 現在日時にリセット</button>
+                </div>
+            </div>
+            
+            <div id="google-note" style="font-size:0.75rem; color:var(--text-sub); margin-top:5px; text-align:center;">
+                ※Googleマップは現在時刻での検索になります
+            </div>
+
+        </div>
+    </details>
+
+    <div class="card">
+        <div class="section-title">
+            <span>⭐️ よく行く場所</span>
+            <small onclick="toggleDeleteMode()" style="text-decoration:underline; cursor:pointer; opacity:0.8;">編集</small>
+        </div>
+        <div id="fav-list" class="station-list"></div>
+        
+        <div style="margin-top:10px; display:flex; gap:5px;">
+            <input type="text" id="new-dest" placeholder="駅名を追加" style="margin-bottom:0;">
+            <button class="sub-btn" onclick="addFavorite()">追加</button>
+        </div>
+
+        <div style="border-top:1px solid var(--border-color); margin: 15px 0 10px; padding-top:10px;">
+            <div class="section-title" style="margin-bottom:5px;">
+                <span>🎯 圏内サーチ (到着駅)</span>
+                <span id="count-badge" style="background:var(--border-color); padding:1px 6px; border-radius:4px; font-size:0.65rem;">0件</span>
+            </div>
+            
+            <div class="range-container" style="margin-bottom:10px;">
+                <span style="font-size:0.75rem; color:var(--text-sub);">範囲:</span>
+                <input type="range" id="range-slider" min="5" max="50" step="1" value="20" oninput="updateRangeVal(this.value)" onchange="updateDistanceFilter()">
+                <span class="range-val" id="range-display">20km</span>
+            </div>
+
+            <div id="loading">📡 周辺の駅を検索中...</div>
+            <div id="auto-list" class="station-list">
+                <div style="color:var(--text-sub); font-size:0.75rem; grid-column: 1 / -1; text-align:center; padding: 15px; background:rgba(0,0,0,0.02); border-radius:6px;">
+                    出発駅を特定すると<br>ここに駅が表示されます
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card" id="history-card" style="display:none;">
+        <div class="section-title">🕒 最近チェックした行先</div>
+        <div id="history-list" class="station-list"></div>
+    </div>
+
+    <script>
+        const API_URL = "https://express.heartrails.com/api/json?method=";
+        let currentLat = 0;
+        let currentLon = 0;
+        
+        let allNearbyStations = []; 
+        let depSearchRadiusKm = 2.0; 
+
+        let cachedDestStations = []; 
+        let destSearchRadiusKm = 20; 
+        
+        let currentMode = 'google';
+
+        let favorites = JSON.parse(localStorage.getItem('my_favorites')) || ['新宿駅', '東京駅'];
+        let history = JSON.parse(localStorage.getItem('my_history')) || [];
+        let depHistory = JSON.parse(localStorage.getItem('my_dep_history')) || [];
+        
+        let isDeleteMode = false;
+
+        const LINE_COLORS = [
+            { key: ['山手', '埼京', '横浜', '新宿線'], color: '#99cc00' },
+            { key: ['中央', '銀座', '東海道', '武蔵野'], color: '#ff9900' },
+            { key: ['京浜東北', '東西', '千代田', '小田急'], color: '#0099cc' },
+            { key: ['丸ノ内', '京葉', '浅草'], color: '#ff3333' },
+            { key: ['半蔵門', '田園都市', '京王'], color: '#cc33cc' },
+            { key: ['東横', '副都心', '有楽町'], color: '#a52a2a' },
+            { key: ['日比谷', '東武'], color: '#999999' }
+        ];
+
+        window.onload = function() {
+            loadTheme();
+            renderFavorites();
+            renderHistory();
+            setNow();
+            initDepSelect();
+
+            const savedMode = localStorage.getItem('app_mode');
+            if(savedMode) switchMode(savedMode);
+            else switchMode('google');
+        };
+
+        function initDepSelect() {
+            const select = document.getElementById('dep-station');
+            select.innerHTML = '';
+            
+            if (depHistory.length > 0) {
+                depHistory.forEach(stName => {
+                    const opt = document.createElement('option');
+                    opt.value = stName;
+                    opt.text = `履歴: ${stName}`;
+                    select.appendChild(opt);
+                });
+                onStationChange();
+            } else {
+                const opt = document.createElement('option');
+                opt.text = 'GPSボタンを押してください';
+                select.appendChild(opt);
+            }
+        }
+
+        function switchMode(mode) {
+            currentMode = mode;
+            localStorage.setItem('app_mode', mode);
+            document.body.setAttribute('data-mode', mode);
+
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                if(btn.dataset.mode === mode) btn.classList.add('active');
+                else btn.classList.remove('active');
+            });
+
+            const dateArea = document.getElementById('datetime-area');
+            const googleNote = document.getElementById('google-note');
+            
+            if(mode === 'yahoo') {
+                dateArea.classList.remove('hidden');
+                googleNote.classList.add('hidden');
+            } else {
+                dateArea.classList.add('hidden');
+                googleNote.classList.remove('hidden');
+            }
+        }
+
+        function openMap(dest) {
+            if(isDeleteMode) { removeFavorite(dest); return; }
+            addToHistory(dest);
+
+            let depStation = document.getElementById('dep-station').value;
+            if(!depStation || depStation === '位置情報を取得中...' || depStation === '取得失敗' || depStation === 'GPSボタンを押してください' || depStation === '周辺の駅を収集中...') {
+                alert("出発駅が有効ではありません");
+                return;
+            }
+            addToDepHistory(depStation);
+
+            // カッコ内の補足情報を除去してから駅名の末尾処理をする
+            depStation = depStation.replace(/\(.*?\)/g, "").trim();
+            dest = dest.replace(/\(.*?\)/g, "").trim();
+
+            if (!depStation.endsWith("駅")) depStation += "駅";
+            if (!dest.endsWith("駅") && !dest.endsWith("バス停")) dest += "駅";
+
+            const travelMode = document.getElementById('opt-mode').value;
+            let url = "";
+
+            if (currentMode === 'google') {
+                url = `https://www.google.co.jp/maps?saddr=${encodeURIComponent(depStation)}&daddr=${encodeURIComponent(dest)}`;
+                const modeParam = (travelMode === 'walking') ? 'w' : 'r';
+                url += `&dirflg=${modeParam}`;
+            } else {
+                url = `https://transit.yahoo.co.jp/search/result?from=${encodeURIComponent(depStation)}&to=${encodeURIComponent(dest)}`;
+                const timeType = document.getElementById('opt-time-type').value;
+                const datetimeVal = document.getElementById('opt-datetime').value;
+                if (datetimeVal) {
+                    const dateObj = new Date(datetimeVal);
+                    url += `&y=${dateObj.getFullYear()}&m=${dateObj.getMonth()+1}&d=${dateObj.getDate()}&hh=${dateObj.getHours()}&m1=${Math.floor(dateObj.getMinutes()/10)}&m2=${dateObj.getMinutes()%10}&type=${timeType}`;
+                }
+            }
+            window.open(url, '_blank');
+        }
+
+        function addToDepHistory(stationName) {
+            depHistory = depHistory.filter(h => h !== stationName);
+            depHistory.unshift(stationName);
+            if(depHistory.length > 3) depHistory.pop();
+            localStorage.setItem('my_dep_history', JSON.stringify(depHistory));
+        }
+
+        function getLocationFast() {
+            const select = document.getElementById('dep-station');
+            document.getElementById('line-filters').style.display = 'none';
+            select.innerHTML = '<option>位置情報を取得中...</option>';
+            if (!navigator.geolocation) { alert("GPS非対応"); return; }
+            
+            const options = {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 30000 
+            };
+
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    currentLat = pos.coords.latitude;
+                    currentLon = pos.coords.longitude;
+                    fetchNearestFast(currentLat, currentLon);
+                },
+                (err) => {
+                    initDepSelect();
+                    if(err.code === 3) { 
+                        alert("位置情報の取得に時間がかかりすぎたため中断しました。");
+                    } else {
+                        alert("位置情報を取得できませんでした。");
+                    }
+                },
+                options
+            );
+        }
+
+        function fetchWideAreaStations() {
+            if(currentLat === 0) {
+                alert("先にメイン画面の「📍 現在地...」ボタンで位置情報を取得してください。");
+                return;
+            }
+            fetchNearestAndExpand(currentLat, currentLon);
+        }
+
+        function fetchNearestFast(lat, lon) {
+             fetch(`${API_URL}getStations&x=${lon}&y=${lat}`)
+                .then(res => res.json())
+                .then(data => {
+                    if(!data.response || !data.response.station) {
+                        const select = document.getElementById('dep-station');
+                        select.innerHTML = '<option>駅が見つかりません</option>';
+                        return;
+                    }
+                    const stations = data.response.station.map(st => {
+                        st.distFromHere = getDistance(currentLat, currentLon, st.y, st.x);
+                        return st;
+                    });
+                    
+                    allNearbyStations = stations;
+                    renderLineFilters(stations);
+                    populateDepStationSelect(stations);
+                });
+        }
+
+        async function fetchNearestAndExpand(lat, lon) {
+            const select = document.getElementById('dep-station');
+            select.innerHTML = '<option>周辺の駅を収集中...</option>';
+
+            try {
+                const res = await fetch(`${API_URL}getStations&x=${lon}&y=${lat}`);
+                const data = await res.json();
+                
+                if(!data.response || !data.response.station) {
+                    select.innerHTML = '<option>駅が見つかりません</option>';
+                    return;
+                }
+
+                const seedStations = data.response.station;
+                const linesSet = new Set();
+                seedStations.forEach(st => linesSet.add(st.line));
+                const lines = [...linesSet];
+
+                let allStations = [];
+                const promises = lines.map(line => 
+                    fetch(`${API_URL}getStations&line=${encodeURIComponent(line)}`)
+                    .then(r => r.json())
+                    .catch(e => {
+                        console.warn(`[API取得エラー] ${line}:`, e);
+                        return { response: { station: [] } }; // エラー時は空データを返して全体を止めない
+                    })
+                );
+                
+                const results = await Promise.all(promises);
+                
+                results.forEach(r => {
+                    if(r.response && r.response.station) {
+                        r.response.station.forEach(st => {
+                            st.distFromHere = getDistance(currentLat, currentLon, st.y, st.x);
+                            allStations.push(st);
+                        });
+                    }
+                });
+
+                const uniqueStations = [];
+                const seen = new Set();
+                allStations.forEach(st => {
+                    const key = st.name + st.line;
+                    if(!seen.has(key)) {
+                        seen.add(key);
+                        uniqueStations.push(st);
+                    }
+                });
+
+                allNearbyStations = uniqueStations; 
+                
+                updateDepStationsByRange();
+                
+                document.getElementById('options-card').removeAttribute('open');
+                alert("広範囲検索が完了しました。出発駅リストを確認してください。");
+
+            } catch(e) {
+                console.error(e);
+                select.innerHTML = '<option>検索エラー</option>';
+            }
+        }
+
+        function updateDepRangeVal(val) {
+            depSearchRadiusKm = parseFloat(val);
+            document.getElementById('dep-range-display').innerText = `${val}km`;
+        }
+
+        function updateDepStationsByRange() {
+            const filtered = allNearbyStations.filter(s => s.distFromHere <= depSearchRadiusKm);
+            filtered.sort((a, b) => a.distFromHere - b.distFromHere);
+
+            let finalStations = filtered;
+            if(finalStations.length === 0 && allNearbyStations.length > 0) {
+                allNearbyStations.sort((a, b) => a.distFromHere - b.distFromHere);
+                if(allNearbyStations.length > 3) {
+                     finalStations = [allNearbyStations[0]];
+                } else {
+                     finalStations = allNearbyStations;
+                }
+            }
+
+            renderLineFilters(finalStations);
+            populateDepStationSelect(finalStations);
+        }
+
+        function renderLineFilters(stations) {
+            const container = document.getElementById('line-filters');
+            container.innerHTML = '';
+            const lines = [...new Set(stations.map(s => s.line))];
+            
+            if (lines.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+            container.style.display = 'flex';
+            
+            const allBtn = document.createElement('span');
+            allBtn.className = 'line-tag selected';
+            allBtn.innerText = '全て';
+            allBtn.onclick = () => filterStationsByLine('ALL', allBtn, stations);
+            container.appendChild(allBtn);
+
+            lines.forEach(line => {
+                const btn = document.createElement('span');
+                btn.className = 'line-tag';
+                btn.innerText = line;
+                btn.style.borderLeft = `3px solid ${getLineColor(line)}`; // 路線のテーマカラーを反映
+                btn.onclick = () => filterStationsByLine(line, btn, stations);
+                container.appendChild(btn);
+            });
+        }
+
+        function filterStationsByLine(line, clickedBtn, currentStationSet) {
+            document.querySelectorAll('.line-tag').forEach(b => b.classList.remove('selected'));
+            clickedBtn.classList.add('selected');
+
+            if(line === 'ALL') {
+                populateDepStationSelect(currentStationSet);
+            } else {
+                const filtered = currentStationSet.filter(s => s.line === line);
+                populateDepStationSelect(filtered);
+            }
+        }
+
+        function populateDepStationSelect(stations) {
+            const select = document.getElementById('dep-station');
+            select.innerHTML = '';
+            stations.forEach(st => {
+                const opt = document.createElement('option');
+                opt.value = st.name;
+                opt.dataset.lines = st.line;
+                opt.text = `${st.name} (${st.line})`;
+                if(st.distFromHere) {
+                    opt.text += ` - ${st.distFromHere.toFixed(1)}km`;
+                }
+                select.appendChild(opt);
+            });
+            onStationChange();
+        }
+
+        function setManualDep() {
+            const input = document.getElementById('manual-dep-input');
+            const val = input.value.trim();
+            if(!val) return;
+
+            const select = document.getElementById('dep-station');
+            const opt = document.createElement('option');
+            opt.value = val;
+            opt.text = `${val} (手動)`;
+            select.insertBefore(opt, select.firstChild);
+            select.selectedIndex = 0;
+
+            onStationChange();
+            document.getElementById('options-card').removeAttribute('open');
+            alert(`出発駅を「${val}」に設定しました`);
+            input.value = '';
+        }
+
+        function onStationChange() {
+            const select = document.getElementById('dep-station');
+            if(select.options.length === 0) return;
+            const selectedOpt = select.options[select.selectedIndex];
+            if(!selectedOpt) return;
+            
+            const lines = selectedOpt.dataset.lines;
+            const stationName = selectedOpt.value;
+            
+            if(lines && currentLat !== 0) {
+                fetchStationsOnLine(lines, stationName);
+            } else {
+                document.getElementById('auto-list').innerHTML = '<div style="text-align:center; padding:10px; color:var(--text-sub); font-size:0.75rem;">GPS未取得または路線情報がないため<br>圏内サーチは利用できません。<br>「よく行く場所」から選んでください。</div>';
+                document.getElementById('count-badge').innerText = '-';
+            }
+        }
+
+        async function fetchStationsOnLine(lineName, originName) {
+            const loading = document.getElementById('loading');
+            const badge = document.getElementById('count-badge');
+            document.getElementById('auto-list').innerHTML = '';
+            loading.style.display = 'block';
+            badge.innerText = '...';
+            try {
+                const res = await fetch(`${API_URL}getStations&line=${encodeURIComponent(lineName)}`);
+                const data = await res.json();
+                if(data.response && data.response.station) {
+                    cachedDestStations = data.response.station.map(st => {
+                        return { name: st.name, line: lineName, dist: getDistance(currentLat, currentLon, st.y, st.x) };
+                    });
+                    cachedDestStations = cachedDestStations.filter(st => st.name !== originName);
+                    renderAutoList();
+                }
+            } catch (e) { console.error(e); } finally { loading.style.display = 'none'; }
+        }
+
+        function updateRangeVal(val) {
+            destSearchRadiusKm = parseInt(val);
+            document.getElementById('range-display').innerText = `${val}km`;
+        }
+        function updateDistanceFilter() { renderAutoList(); }
+
+        function renderAutoList() {
+            const list = document.getElementById('auto-list');
+            const badge = document.getElementById('count-badge');
+            list.innerHTML = '';
+            const filtered = cachedDestStations.filter(st => st.dist <= destSearchRadiusKm && st.dist > 1.0);
+            filtered.sort((a, b) => a.dist - b.dist);
+            const displayed = new Set();
+            filtered.forEach(item => {
+                if(displayed.has(item.name)) return;
+                displayed.add(item.name);
+                const btn = document.createElement('button');
+                btn.className = 'auto-btn';
+                btn.style.borderLeftColor = getLineColor(item.line);
+                btn.innerHTML = `<span>${item.name}</span><small>${item.dist.toFixed(1)}km</small>`;
+                btn.onclick = () => openMap(item.name);
+                list.appendChild(btn);
+            });
+            badge.innerText = `${displayed.size}件`;
+            if(displayed.size === 0) list.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:var(--text-sub); font-size:0.8rem; padding:15px;">指定範囲内に駅が見つかりません</div>';
+        }
+
+        function getLineColor(lineName) {
+            if(!lineName) return '#ccc';
+            for (const entry of LINE_COLORS) { if (entry.key.some(k => lineName.includes(k))) return entry.color; }
+            return '#ccc';
+        }
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; 
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+        function setNow() {
+            const now = new Date();
+            const localIso = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+            document.getElementById('opt-datetime').value = localIso;
+        }
+        function addToHistory(dest) {
+            history = history.filter(h => h !== dest);
+            history.unshift(dest);
+            if(history.length > 5) history.pop();
+            localStorage.setItem('my_history', JSON.stringify(history));
+            renderHistory();
+        }
+        function renderHistory() {
+            const container = document.getElementById('history-card');
+            const list = document.getElementById('history-list');
+            if(history.length === 0) { container.style.display = 'none'; return; }
+            container.style.display = 'block';
+            list.innerHTML = '';
+            history.forEach(h => {
+                const btn = document.createElement('button');
+                btn.className = 'history-btn';
+                btn.innerText = h;
+                btn.onclick = () => openMap(h);
+                list.appendChild(btn);
+            });
+        }
+        function renderFavorites() {
+            const list = document.getElementById('fav-list');
+            list.innerHTML = '';
+            favorites.forEach(f => {
+                const btn = document.createElement('button');
+                btn.className = 'fav-btn';
+                btn.innerText = f;
+                btn.onclick = () => openMap(f);
+                list.appendChild(btn);
+            });
+        }
+        function addFavorite() {
+            const input = document.getElementById('new-dest');
+            const val = input.value.trim();
+            if(val && !favorites.includes(val)) {
+                favorites.push(val);
+                localStorage.setItem('my_favorites', JSON.stringify(favorites));
+                renderFavorites();
+                input.value = '';
+            }
+        }
+        function removeFavorite(val) {
+            if(confirm(`「${val}」を削除しますか？`)) {
+                favorites = favorites.filter(f => f !== val);
+                localStorage.setItem('my_favorites', JSON.stringify(favorites));
+                renderFavorites();
+                toggleDeleteMode();
+            }
+        }
+        function toggleDeleteMode() {
+            isDeleteMode = !isDeleteMode;
+            const list = document.getElementById('fav-list');
+            if(isDeleteMode) list.classList.add('delete-mode'); else list.classList.remove('delete-mode');
+        }
+        function toggleTheme() {
+            const body = document.body;
+            body.classList.toggle('dark-mode');
+            localStorage.setItem('theme', body.classList.contains('dark-mode') ? 'dark' : 'light');
+        }
+        function loadTheme() {
+            const saved = localStorage.getItem('theme');
+            if(saved === 'dark') document.body.classList.add('dark-mode');
+            else if (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches) document.body.classList.add('dark-mode');
+        }
+    </script>
+</body>
+</html>
